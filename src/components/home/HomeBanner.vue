@@ -17,12 +17,19 @@ defineProps({
 <style scoped lang="scss">
 .home-banner {
   width: 100%;
-  height: 480px;
+  height: 100%;
+  overflow: hidden;
+
+  :deep(.el-carousel) {
+    width: 100%;
+    height: 100%;
+  }
 
   .banner-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
   }
 
   :deep(.el-carousel__indicators) {
