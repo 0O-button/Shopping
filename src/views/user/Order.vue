@@ -1,7 +1,14 @@
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getOrderList, cancelOrder, confirmReceive, payOrder } from '@/api/order'
+import {
+  getOrderList,
+  cancelOrder,
+  confirmReceive,
+  payOrder,
+  deleteOrder,
+  batchDeleteOrders
+} from '@/api/order'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
@@ -26,12 +33,46 @@ const tabs = [
   { key: 'CANCELED', label: '已取消' }
 ]
 
+// ============ 选中管理 ============
+const selectedIds = ref([])
+
+const isAllChecked = computed(() => {
+  if (!list.value.length) return false
+  return list.value.every((o) => selectedIds.value.includes(o.id))
+})
+
+const isIndeterminate = computed(() => {
+  if (!list.value.length) return false
+  const n = list.value.filter((o) => selectedIds.value.includes(o.id)).length
+  return n > 0 && n < list.value.length
+})
+
+function toggleSelect(id) {
+  const idx = selectedIds.value.indexOf(id)
+  if (idx > -1) selectedIds.value.splice(idx, 1)
+  else selectedIds.value.push(id)
+}
+
+function toggleAll(val) {
+  if (val) {
+    const set = new Set([...selectedIds.value, ...list.value.map((o) => o.id)])
+    selectedIds.value = [...set]
+  } else {
+    const pageIds = list.value.map((o) => o.id)
+    selectedIds.value = selectedIds.value.filter((id) => !pageIds.includes(id))
+  }
+}
+
+// ============ 数据加载 ============
 async function loadList() {
   loading.value = true
   try {
     const res = await getOrderList({ ...query })
     list.value = res.records
     total.value = res.total
+    selectedIds.value = []
+  } catch (e) {
+    ElMessage.error(e.message || '加载失败')
   } finally {
     loading.value = false
   }
@@ -46,6 +87,20 @@ function changeTab(key) {
 function changePage(p) {
   query.page = p
   loadList()
+}
+
+// ============ 订单操作 ============
+async function handlePay(order) {
+  try {
+    await ElMessageBox.confirm(
+      `确认支付 ¥${order.total.toFixed(2)} 吗？`,
+      '支付确认',
+      { type: 'info', confirmButtonText: '确认支付' }
+    )
+    await payOrder(order.id)
+    ElMessage.success('支付成功')
+    loadList()
+  } catch (e) {}
 }
 
 async function handleCancel(order) {
@@ -66,28 +121,101 @@ async function handleConfirm(order) {
   } catch (e) {}
 }
 
-async function handlePay(order) {
+// ============ 单条删除 ============
+async function handleDelete(order) {
   try {
     await ElMessageBox.confirm(
-      `确认支付 ¥${order.total.toFixed(2)} 吗？`,
-      '支付确认',
-      { type: 'info', confirmButtonText: '确认支付' }
+      `确定删除订单 ${order.id} 吗？删除后不可恢复。`,
+      '删除订单',
+      {
+        type: 'warning',
+        confirmButtonText: '确认删除',
+        confirmButtonClass: 'el-button--danger'
+      }
     )
-    await payOrder(order.id)
-    ElMessage.success('支付成功')
+    await deleteOrder(order.id)
+    ElMessage.success('删除成功')
+
+    // 如果删的是当前页最后一条，回退一页
+    if (list.value.length === 1 && query.page > 1) {
+      query.page -= 1
+    }
     loadList()
   } catch (e) {}
 }
 
-// 高亮刚提交的订单
+// ============ 批量删除 ============
+async function handleBatchDelete() {
+  if (!selectedIds.value.length) {
+    ElMessage.warning('请先选择要删除的订单')
+    return
+  }
+
+  const count = selectedIds.value.length
+  try {
+    await ElMessageBox.confirm(
+      `确定删除选中的 ${count} 条订单吗？删除后不可恢复。`,
+      '批量删除',
+      {
+        type: 'warning',
+        confirmButtonText: '确认删除',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+    await batchDeleteOrders([...selectedIds.value])
+    ElMessage.success(`已删除 ${count} 条订单`)
+
+    const remain = total.value - count
+    const maxPage = Math.max(1, Math.ceil(remain / query.pageSize))
+    if (query.page > maxPage) query.page = maxPage
+
+    selectedIds.value = []
+    loadList()
+  } catch (e) {}
+}
+
+// 提交订单后高亮
 const highlightId = computed(() => route.query.orderId || '')
+
+watch(
+  () => route.query.orderId,
+  (id) => {
+    if (id) {
+      query.status = ''
+      query.page = 1
+      loadList()
+    }
+  }
+)
 
 onMounted(loadList)
 </script>
 
 <template>
-  <div class="order-page container">
-    <h2 class="page-title">我的订单</h2>
+  <div class="order-page">
+    <!-- 头部 -->
+    <div class="page-head">
+      <h2 class="page-title">我的订单</h2>
+
+      <div class="batch-actions">
+        <el-checkbox
+          :model-value="isAllChecked"
+          :indeterminate="isIndeterminate"
+          @change="toggleAll"
+        >全选本页</el-checkbox>
+
+        <el-button
+          type="danger"
+          plain
+          size="small"
+          :disabled="selectedIds.length === 0"
+          @click="handleBatchDelete"
+        >
+          <el-icon><Delete /></el-icon>
+          删除选中（{{ selectedIds.length }}）
+        </el-button>
+      </div>
+    </div>
 
     <!-- Tab -->
     <div class="tabs">
@@ -106,11 +234,19 @@ onMounted(loadList)
       <div
         v-for="order in list"
         :key="order.id"
-        :class="['order-card', { 'is-new': order.id === highlightId }]"
+        :class="[
+          'order-card',
+          { 'is-new': order.id === highlightId },
+          { 'is-selected': selectedIds.includes(order.id) }
+        ]"
       >
         <!-- 订单头 -->
         <div class="order-card__head">
           <div class="left">
+            <el-checkbox
+              :model-value="selectedIds.includes(order.id)"
+              @change="toggleSelect(order.id)"
+            />
             <span class="time">{{ order.createTime }}</span>
             <span class="no">订单号：{{ order.id }}</span>
           </div>
@@ -121,11 +257,7 @@ onMounted(loadList)
 
         <!-- 商品明细 -->
         <div class="order-card__body">
-          <div
-            v-for="g in order.goods"
-            :key="g.id"
-            class="goods-row"
-          >
+          <div v-for="g in order.goods" :key="g.id" class="goods-row">
             <img class="thumb" :src="g.image" :alt="g.name" />
             <div class="info">
               <p class="name ellipsis-2">{{ g.name }}</p>
@@ -156,19 +288,31 @@ onMounted(loadList)
                 size="small"
                 @click="handlePay(order)"
               >立即付款</el-button>
+
               <el-button
                 v-if="order.status === 'UNPAID'"
                 size="small"
                 @click="handleCancel(order)"
               >取消订单</el-button>
+
               <el-button
                 v-if="order.status === 'SHIPPED'"
                 type="primary"
                 size="small"
                 @click="handleConfirm(order)"
               >确认收货</el-button>
+
               <el-button size="small" plain @click="router.push('/home')">
                 再次购买
+              </el-button>
+
+              <el-button
+                size="small"
+                type="danger"
+                plain
+                @click="handleDelete(order)"
+              >
+                <el-icon><Delete /></el-icon> 删除订单
               </el-button>
             </div>
           </div>
@@ -192,21 +336,32 @@ onMounted(loadList)
 </template>
 
 <style scoped lang="scss">
-.page-title {
-  font-size: 20px;
-  margin-bottom: 16px;
-  color: $text-color;
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid $border-color;
+
+  .page-title { font-size: 18px; color: $text-color; }
+
+  .batch-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    :deep(.el-checkbox__label) { font-size: 13px; color: $text-normal; }
+  }
 }
 
 .tabs {
   display: flex;
-  background: $white;
-  border-radius: 4px 4px 0 0;
   border-bottom: 1px solid $border-color;
-  padding: 0 20px;
+  padding: 0 4px;
+  margin-bottom: 4px;
 
   .tab {
-    padding: 14px 4px;
+    padding: 12px 4px;
     margin-right: 30px;
     font-size: 14px;
     color: $text-normal;
@@ -243,6 +398,11 @@ onMounted(loadList)
     box-shadow: 0 0 0 3px rgba(225, 37, 27, 0.1);
   }
 
+  &.is-selected {
+    border-color: $primary-color;
+    background: #fffafa;
+  }
+
   &__head {
     display: flex;
     justify-content: space-between;
@@ -254,18 +414,15 @@ onMounted(loadList)
 
     .left {
       display: flex;
-      gap: 20px;
+      align-items: center;
+      gap: 14px;
+      :deep(.el-checkbox) { margin-right: 0; }
     }
 
-    .status {
-      font-weight: 600;
-      font-size: 14px;
-    }
+    .status { font-weight: 600; font-size: 14px; }
   }
 
-  &__body {
-    padding: 8px 20px;
-  }
+  &__body { padding: 8px 20px; }
 
   .goods-row {
     display: flex;
@@ -309,7 +466,7 @@ onMounted(loadList)
       color: $text-light;
       display: flex;
       gap: 14px;
-      max-width: 60%;
+      max-width: 50%;
 
       .addr { max-width: 240px; }
     }
@@ -331,10 +488,7 @@ onMounted(loadList)
         }
       }
 
-      .btns {
-        display: flex;
-        gap: 8px;
-      }
+      .btns { display: flex; gap: 8px; }
     }
   }
 }
