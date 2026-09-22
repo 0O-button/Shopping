@@ -39,8 +39,21 @@ function makeOrder(i, status) {
   }
 }
 
-const statuses = ['UNPAID', 'UNSHIPPED', 'SHIPPED', 'FINISHED', 'CANCELED']
+const statuses = [
+  'FINISHED',   // 1
+  'FINISHED',   // 2
+  'SHIPPED',    // 3
+  'SHIPPED',    // 4
+  'UNSHIPPED',  // 5
+  'FINISHED',   // 6
+  'CANCELED',   // 7  ← 取消
+  'SHIPPED',    // 8
+  'FINISHED',   // 9
+  'UNSHIPPED',  // 10
+  'CANCELED',   // 11 ← 取消
+  'FINISHED'    // 12
+]
 
 export const mockOrders = Array.from({ length: 12 }, (_, i) =>
-  makeOrder(i + 1, statuses[i % statuses.length])
+  makeOrder(i + 1, statuses[i])
 )
