@@ -131,3 +131,23 @@ export const payOrder = (orderId) => {
   }
   return Promise.resolve(true)
 }
+/** 删除单个订单 */
+export const deleteOrder = (orderId) => {
+  if (!USE_MOCK) return request.delete(`/order/${orderId}`)
+
+  const list = loadOrders()
+  const next = list.filter((o) => o.id !== orderId)
+  saveOrders(next)
+  return Promise.resolve(true)
+}
+
+/** 批量删除订单 */
+export const batchDeleteOrders = (orderIds) => {
+  if (!USE_MOCK) return request.post('/order/batch-delete', { orderIds })
+
+  const ids = new Set(orderIds)
+  const list = loadOrders()
+  const next = list.filter((o) => !ids.has(o.id))
+  saveOrders(next)
+  return Promise.resolve(true)
+}
