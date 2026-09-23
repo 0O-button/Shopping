@@ -1,19 +1,21 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useCartStore } from '@/stores/cart'
+import { useSearchHistoryStore } from '@/stores/searchHistory'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import LocationPicker from './LocationPicker.vue'
+import ThemeSwitch from './ThemeSwitch.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const cartStore = useCartStore()
+const searchHistoryStore = useSearchHistoryStore()
 
 const keyword = ref('')
 const hotWords = ['手机', '笔记本电脑', '空气炸锅', '运动鞋', '口红']
 
-// 搜索栏右侧 4 个快捷入口
 const quickLinks = [
   { icon: 'Ticket', label: '优惠券', path: '#' },
   { icon: 'Present', label: '新人礼', path: '#' },
@@ -21,14 +23,58 @@ const quickLinks = [
   { icon: 'Service', label: '客服', path: '#' }
 ]
 
+// ===== 搜索历史面板 =====
+const searchBoxRef = ref(null)
+const showHistory = ref(false)
+
+function handleClickOutside(e) {
+  if (searchBoxRef.value && !searchBoxRef.value.contains(e.target)) {
+    showHistory.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+function handleFocus() {
+  if (searchHistoryStore.history.length) {
+    showHistory.value = true
+  }
+}
+
+function pickHistory(kw) {
+  keyword.value = kw
+  showHistory.value = false
+  handleSearch()
+}
+
+function removeHistory(kw, e) {
+  e.stopPropagation()
+  searchHistoryStore.remove(kw)
+}
+
+function clearHistory() {
+  searchHistoryStore.clear()
+  showHistory.value = false
+}
+
+// ===== 搜索 =====
 function handleSearch() {
-  if (!keyword.value.trim()) {
+  const kw = keyword.value.trim()
+  if (!kw) {
     ElMessage.warning('请输入搜索内容')
     return
   }
-  router.push({ path: '/search', query: { keyword: keyword.value.trim() } })
+  searchHistoryStore.add(kw)
+  showHistory.value = false
+  router.push({ path: '/search', query: { keyword: kw } })
 }
 
+// ===== 退出登录 =====
 async function handleLogout() {
   try {
     await ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' })
@@ -53,76 +99,72 @@ function handleQuickLink(path) {
 }
 </script>
 
-
-
-
 <template>
   <header class="app-header">
     <!-- ① 顶部工具条 -->
     <div class="top-bar">
       <div class="container top-bar__inner">
-        <!-- 左：定位 -->
         <div class="left">
           <LocationPicker class="item" />
         </div>
 
-        <!-- 右：头像下拉 + 快捷菜单 -->
         <div class="right">
-  <!-- 快捷菜单 -->
-  <router-link class="item" to="/user/order">我的订单</router-link>
-  <span class="divider">|</span>
-  <router-link class="item" to="/user">会员中心</router-link>
-  <span class="divider">|</span>
-  <router-link class="item" to="/cart">购物车</router-link>
-  <span class="divider">|</span>
-  <a class="item" href="#">客户服务</a>
-  <span class="divider">|</span>
-  <a class="item" href="#">网站导航</a>
+          <!-- 已登录：头像下拉 -->
+          <el-dropdown
+            v-if="userStore.isLogin"
+            trigger="hover"
+            placement="bottom-end"
+            @command="handleCommand"
+          >
+            <div class="avatar-entry">
+              <el-avatar :size="22" :src="userStore.userInfo.avatar" />
+              <el-icon class="arrow"><ArrowDown /></el-icon>
+            </div>
 
-  <!-- 最右：头像 / 登录注册 -->
-  <span class="divider">|</span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <div class="hello-tip">
+                  你好，{{ userStore.userInfo.nickname || '用户' }}
+                </div>
+                <el-dropdown-item command="/user">
+                  <el-icon><User /></el-icon> 个人中心
+                </el-dropdown-item>
+                <el-dropdown-item command="/user/order">
+                  <el-icon><List /></el-icon> 我的订单
+                </el-dropdown-item>
+                <el-dropdown-item command="/user/address">
+                  <el-icon><Location /></el-icon> 收货地址
+                </el-dropdown-item>
+                <el-dropdown-item divided command="logout">
+                  <el-icon><SwitchButton /></el-icon> 退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
 
-  <!-- 已登录 -->
-  <el-dropdown
-    v-if="userStore.isLogin"
-    trigger="hover"
-    placement="bottom-end"
-    @command="handleCommand"
-  >
-    <div class="avatar-entry">
-      <el-avatar :size="22" :src="userStore.userInfo.avatar" />
-      <el-icon class="arrow"><ArrowDown /></el-icon>
-    </div>
+          <!-- 未登录 -->
+          <template v-else>
+            <router-link class="item link" to="/login">请登录</router-link>
+            <span class="divider">|</span>
+            <router-link class="item link" to="/register">免费注册</router-link>
+          </template>
 
-    <template #dropdown>
-      <el-dropdown-menu>
-        <div class="hello-tip">
-          你好，{{ userStore.userInfo.nickname || '用户' }}
+          <!-- 主题切换 -->
+          <span class="divider">|</span>
+          <ThemeSwitch />
+
+          <span class="divider">|</span>
+          <router-link class="item" to="/user/order">我的订单</router-link>
+          <span class="divider">|</span>
+          <router-link class="item" to="/user">会员中心</router-link>
+          <span class="divider">|</span>
+          <router-link class="item" to="/cart">购物车</router-link>
+          <span class="divider">|</span>
+          <a class="item" href="#">客户服务</a>
+          <span class="divider">|</span>
+          <a class="item" href="#">网站导航</a>
         </div>
-        <el-dropdown-item command="/user">
-          <el-icon><User /></el-icon> 个人中心
-        </el-dropdown-item>
-        <el-dropdown-item command="/user/order">
-          <el-icon><List /></el-icon> 我的订单
-        </el-dropdown-item>
-        <el-dropdown-item command="/user/address">
-          <el-icon><Location /></el-icon> 收货地址
-        </el-dropdown-item>
-        <el-dropdown-item divided command="logout">
-          <el-icon><SwitchButton /></el-icon> 退出登录
-        </el-dropdown-item>
-      </el-dropdown-menu>
-    </template>
-  </el-dropdown>
-
-  <!-- 未登录 -->
-  <template v-else>
-    <router-link class="item link" to="/login">请登录</router-link>
-    <span class="divider">|</span>
-    <router-link class="item link" to="/register">免费注册</router-link>
-  </template>
-</div>
-</div>
+      </div>
     </div>
 
     <!-- ② 搜索区 -->
@@ -132,13 +174,14 @@ function handleQuickLink(path) {
           <span class="logo__text">优选商城</span>
         </router-link>
 
-        <div class="search-box">
+        <div class="search-box" ref="searchBoxRef">
           <div class="search-box__input">
             <el-input
               v-model="keyword"
               placeholder="搜索商品，共 10 万+ 好物"
               size="large"
               clearable
+              @focus="handleFocus"
               @keyup.enter="handleSearch"
             >
               <template #prefix>
@@ -147,6 +190,33 @@ function handleQuickLink(path) {
             </el-input>
             <el-button type="danger" size="large" @click="handleSearch">搜索</el-button>
           </div>
+
+          <!-- 搜索历史下拉 -->
+          <transition name="fade">
+            <div v-if="showHistory && searchHistoryStore.history.length" class="search-history">
+              <div class="search-history__head">
+                <span>搜索历史</span>
+                <a class="clear" @click="clearHistory">
+                  <el-icon><Delete /></el-icon> 清空
+                </a>
+              </div>
+              <ul class="search-history__list">
+                <li
+                  v-for="kw in searchHistoryStore.history"
+                  :key="kw"
+                  class="search-history__item"
+                  @click="pickHistory(kw)"
+                >
+                  <el-icon class="icon"><Clock /></el-icon>
+                  <span class="kw ellipsis">{{ kw }}</span>
+                  <el-icon class="close" @click="removeHistory(kw, $event)">
+                    <Close />
+                  </el-icon>
+                </li>
+              </ul>
+            </div>
+          </transition>
+
           <div class="search-box__hot">
             <span
               v-for="(w, i) in hotWords"
@@ -233,12 +303,11 @@ function handleQuickLink(path) {
     }
 
     .divider {
-      color: #ddd;
+      color: $border-color;
       font-size: 11px;
       user-select: none;
     }
 
-    /* 头像入口 */
     .avatar-entry {
       display: inline-flex;
       align-items: center;
@@ -261,7 +330,6 @@ function handleQuickLink(path) {
   }
 }
 
-/* 下拉里的"你好 xxx" */
 :deep(.el-dropdown-menu__item) {
   display: flex;
   align-items: center;
@@ -301,6 +369,7 @@ function handleQuickLink(path) {
   .search-box {
     flex: 1;
     max-width: 560px;
+    position: relative;
 
     &__input {
       display: flex;
@@ -326,6 +395,89 @@ function handleQuickLink(path) {
     }
   }
 
+  /* 搜索历史下拉 */
+  .search-history {
+    position: absolute;
+    top: 46px;
+    left: 0;
+    width: 100%;
+    background: $white;
+    border: 1px solid $border-color;
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    z-index: 999;
+    padding: 8px 0;
+
+    &__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 16px 8px;
+      font-size: 12px;
+      color: $text-light;
+      border-bottom: 1px dashed $border-color;
+
+      .clear {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        cursor: pointer;
+        color: $text-light;
+
+        &:hover { color: $primary-color; }
+      }
+    }
+
+    &__list {
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    &__item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: $text-normal;
+      cursor: pointer;
+      transition: background-color 0.15s;
+
+      .icon {
+        font-size: 14px;
+        color: $text-light;
+        flex-shrink: 0;
+      }
+
+      .kw {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .close {
+        font-size: 14px;
+        color: transparent;
+        padding: 2px;
+        border-radius: 50%;
+        transition: all 0.15s;
+        flex-shrink: 0;
+      }
+
+      &:hover {
+        background: $bg-gray;
+        color: $primary-color;
+
+        .close {
+          color: $text-light;
+          &:hover {
+            background: $border-color;
+            color: $primary-color;
+          }
+        }
+      }
+    }
+  }
+
   &__right {
     display: flex;
     align-items: center;
@@ -334,7 +486,6 @@ function handleQuickLink(path) {
     margin-left: auto;
   }
 
-  /* 4 个快捷入口 */
   .quick-links {
     display: flex;
     gap: 16px;
@@ -362,6 +513,15 @@ function handleQuickLink(path) {
   .cart-entry { flex-shrink: 0; }
 }
 
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 /* ========== 主导航 ========== */
 .main-nav {
   background: $white;
@@ -384,7 +544,7 @@ function handleQuickLink(path) {
     padding-left: 16px;
     display: flex;
     align-items: center;
-    gap: 8px;   
+    gap: 8px;
   }
 
   .nav-item {

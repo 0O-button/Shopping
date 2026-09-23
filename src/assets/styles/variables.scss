@@ -1,12 +1,13 @@
-$primary-color: #e1251b;
-$primary-light: #ff6a00;
+// ========== 主题变量（运行时通过 CSS 变量切换） ==========
+$primary-color: var(--c-primary);
+$primary-light: var(--c-primary-light);
 
-$text-color: #333;
-$text-normal: #666;
-$text-light: #999;
+$text-color: var(--c-text);
+$text-normal: var(--c-text-normal);
+$text-light: var(--c-text-light);
 
-$border-color: #eee;
-$bg-gray: #f5f5f5;
-$white: #fff;
+$border-color: var(--c-border);
+$bg-gray: var(--c-bg-gray);
+$white: var(--c-card-bg);
 
 $container-width: 1200px;
