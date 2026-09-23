@@ -51,13 +51,14 @@ export const submitOrder = (data) => {
   const meta = ORDER_STATUS[status]
 
   const goods = (data.goods || []).map((g) => ({
-    id: g.id,
-    name: g.name,
-    price: Number(g.price),
-    num: g.num,
-    image: g.image,
-    spec: g.spec || ''
-  }))
+  key: g.key,                    // ⭐ 保留 key
+  id: g.id,
+  name: g.name,
+  price: Number(g.price),
+  num: g.num,
+  image: g.image,
+  spec: g.spec || ''
+}))
 
   const newOrder = {
     id: orderId,

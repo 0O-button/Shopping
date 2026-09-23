@@ -31,7 +31,7 @@ function changeNum(item, delta) {
     ElMessage.warning('单次最多购买 99 件')
     return
   }
-  cartStore.updateNum(item.id, item.spec, next)
+  cartStore.updateNum(item.key, next)
 }
 </script>
 
@@ -40,7 +40,6 @@ function changeNum(item, delta) {
     <h2 class="page-title">我的购物车</h2>
 
     <template v-if="cartStore.items.length">
-      <!-- 表头 -->
       <div class="cart-head">
         <div class="col col--check">
           <el-checkbox
@@ -55,16 +54,16 @@ function changeNum(item, delta) {
         <div class="col col--op">操作</div>
       </div>
 
-      <!-- 商品行 -->
+      <!-- ⭐ key 用 item.key -->
       <div
         v-for="item in cartStore.items"
-        :key="item.id + item.spec"
+        :key="item.key"
         class="cart-row"
       >
         <div class="col col--check">
           <el-checkbox
             :model-value="item.checked"
-            @change="cartStore.toggleCheck(item.id, item.spec)"
+            @change="cartStore.toggleCheck(item.key)"
           />
         </div>
 
@@ -91,11 +90,10 @@ function changeNum(item, delta) {
         </div>
 
         <div class="col col--op">
-          <a @click="cartStore.removeItem(item.id, item.spec)">删除</a>
+          <a @click="cartStore.removeItem(item.key)">删除</a>
         </div>
       </div>
 
-      <!-- 结算栏 -->
       <div class="cart-bar">
         <div class="left">
           <el-checkbox

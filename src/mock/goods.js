@@ -1,8 +1,12 @@
 const img = (seed, w = 400, h = 400) =>
   `https://picsum.photos/seed/${seed}/${w}/${h}`
 
-// ============ 商品基础数据（只生成一次，持久化） ============
+// ============ 商品基础数据 ============
 const GOODS_STORAGE_KEY = 'mock_goods_base'
+
+// ⭐ 数据版本号：改了商品结构/库存规则，就把这个数字 +1
+// 加 1 后会自动重建所有商品数据，不用手动清 localStorage
+const GOODS_VERSION = 3
 
 const NAMES = [
   '智能手表 Pro 运动版', '无线降噪耳机 蓝牙5.3', '4K 高清投影仪 家用',
@@ -41,10 +45,28 @@ function buildGoods() {
 function loadGoodsBase() {
   try {
     const cache = localStorage.getItem(GOODS_STORAGE_KEY)
-    if (cache) return JSON.parse(cache)
+    if (cache) {
+      const parsed = JSON.parse(cache)
+      // ⭐ 只有版本号一致 + 数据有效，才用缓存
+      if (
+        parsed &&
+        parsed.version === GOODS_VERSION &&
+        Array.isArray(parsed.list) &&
+        parsed.list.length === 60
+      ) {
+        return parsed.list
+      }
+    }
   } catch (e) {}
+
+  // 版本不一致 / 没缓存 / 数据坏了 → 重建
   const list = buildGoods()
-  localStorage.setItem(GOODS_STORAGE_KEY, JSON.stringify(list))
+  localStorage.setItem(GOODS_STORAGE_KEY, JSON.stringify({
+    version: GOODS_VERSION,
+    list
+  }))
+  // 顺便把扣减记录也清掉，避免旧 delta 扣在新数据上
+  localStorage.removeItem('mock_stock_delta')
   return list
 }
 
@@ -137,3 +159,10 @@ export function makeDetail(id) {
     ]
   }
 }
+// ========== 临时诊断（问题解决后删掉） ==========
+console.log('=== goods.js 已加载 ===')
+console.log('GOODS_VERSION:', GOODS_VERSION)
+console.log('allGoods 数量:', allGoods.length)
+console.log('allGoods[0]:', allGoods[0])
+console.log('getRealStock(1000):', getRealStock(1000))
+console.log('localStorage 结构:', JSON.parse(localStorage.getItem('mock_goods_base') || 'null'))

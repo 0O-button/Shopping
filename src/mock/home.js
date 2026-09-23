@@ -1,12 +1,16 @@
+import { allGoods } from './goods'
+
 const img = (seed, w = 400, h = 400) =>
   `https://picsum.photos/seed/${seed}/${w}/${h}`
 
+// ============ 轮播图 ============
 export const mockBanners = [
   { id: 1, title: '618 年中大促', image: img('banner1', 900, 480), link: '/search?keyword=618' },
   { id: 2, title: '数码新品首发', image: img('banner2', 900, 480), link: '/search?keyword=数码' },
   { id: 3, title: '家电焕新季', image: img('banner3', 900, 480), link: '/search?keyword=家电' }
 ]
 
+// ============ 分类菜单 ============
 export const mockCategories = [
   { id: 1, name: '手机 / 运营商 / 数码', children: [
       { name: '手机通讯', items: ['智能手机', '老人机', '对讲机'] },
@@ -30,28 +34,24 @@ export const mockCategories = [
   { id: 10, name: '运动 / 户外 / 骑行', children: [] }
 ]
 
-const makeGoods = (prefix, names) =>
-  names.map((name, i) => ({
-    id: `${prefix}-${i + 1}`,
-    name,
-    desc: '正品保障 · 全国联保 · 极速发货',
-    price: (Math.random() * 4000 + 199).toFixed(2),
-    sales: Math.floor(Math.random() * 9000) + 100,
-    tag: i === 0 ? '自营' : '',
-    image: img(`${prefix}${i}`)
-  }))
-
+// ============ 楼层：直接从 allGoods 里取，ID 统一 ============
 export const mockFloors = [
   {
     id: 1,
     title: '数码电器',
     subTitle: '潮酷数码 · 品质家电',
-    goods: makeGoods('digital', ['智能手表 Pro', '无线降噪耳机', '4K 高清投影仪', '机械键盘 87 键', '扫地机器人'])
+    goods: allGoods.slice(0, 5)          // ID 1000 ~ 1004
   },
   {
     id: 2,
     title: '服饰美妆',
     subTitle: '当季新品 · 焕新你的衣橱',
-    goods: makeGoods('fashion', ['纯棉宽松卫衣', '轻薄羽绒服', '保湿精华液', '丝绒口红套装', '真皮通勤包'])
+    goods: allGoods.slice(5, 10)         // ID 1005 ~ 1009
+  },
+  {
+    id: 3,
+    title: '家居生活',
+    subTitle: '品质好物 · 精致生活',
+    goods: allGoods.slice(10, 15)        // ID 1010 ~ 1014
   }
 ]

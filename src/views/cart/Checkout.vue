@@ -79,7 +79,15 @@ async function handleSubmit() {
   try {
     const addr = selectedAddress.value
     const res = await submitOrder({
-      goods: goodsList.value,
+  goods: goodsList.value.map((g) => ({
+    key: g.key,
+    id: g.id,
+    name: g.name,
+    price: g.price,
+    num: g.num,
+    image: g.image,
+    spec: g.spec || ''
+  })),
       address: {
         name: addr.name,
         phone: addr.phone,
@@ -186,10 +194,10 @@ onMounted(() => {
         </div>
 
         <div
-          v-for="item in goodsList"
-          :key="item.id + item.spec"
-          class="goods-row"
-        >
+  v-for="item in goodsList"
+  :key="item.key"
+  class="goods-row"
+       >
           <div class="col col--goods">
             <img class="thumb" :src="item.image" :alt="item.name" />
             <div class="info">
