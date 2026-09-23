@@ -1,6 +1,6 @@
 import request from './request'
 import { mockOrders, ORDER_STATUS } from '@/mock/order'
-import { reduceStock, restoreStock } from '@/mock/goods'   // ⭐ 关键
+import { reduceStock, restoreStock } from '@/mock/goods'
 
 const USE_MOCK = true
 
@@ -76,7 +76,6 @@ export const submitOrder = (data) => {
     remark: data.remark || ''
   }
 
-  // ⭐ 扣库存
   reduceStock(goods.map((g) => ({ id: g.id, num: g.num })))
 
   const list = loadOrders()
@@ -94,12 +93,9 @@ export const cancelOrder = (orderId) => {
   const idx = list.findIndex((o) => o.id === orderId)
   if (idx > -1) {
     const order = list[idx]
-
-    // ⭐ 回滚库存（只有非取消状态才回滚，避免重复）
     if (order.status !== 'CANCELED') {
       restoreStock(order.goods.map((g) => ({ id: g.id, num: g.num })))
     }
-
     list[idx].status = 'CANCELED'
     list[idx].statusLabel = ORDER_STATUS.CANCELED.label
     list[idx].statusColor = ORDER_STATUS.CANCELED.color

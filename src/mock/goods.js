@@ -1,7 +1,7 @@
 const img = (seed, w = 400, h = 400) =>
   `https://picsum.photos/seed/${seed}/${w}/${h}`
 
-// ============ 商品原始数据（只生成一次，持久化） ============
+// ============ 商品基础数据（只生成一次，持久化） ============
 const GOODS_STORAGE_KEY = 'mock_goods_base'
 
 const NAMES = [
@@ -29,7 +29,7 @@ function buildGoods() {
       price: +(Math.random() * 6000 + 99).toFixed(2),
       originPrice: +(Math.random() * 3000 + 6000).toFixed(2),
       sales: Math.floor(Math.random() * 20000) + 100,
-      stock: Math.floor(Math.random() * 500) + 100,   // 100 ~ 600
+      stock: Math.floor(Math.random() * 500) + 100,
       brand: randomOf(BRANDS),
       category: randomOf(CATS),
       tag: i % 5 === 0 ? '自营' : '',
@@ -38,7 +38,6 @@ function buildGoods() {
   })
 }
 
-/** 商品基础数据，只生成一次，存 localStorage */
 function loadGoodsBase() {
   try {
     const cache = localStorage.getItem(GOODS_STORAGE_KEY)
@@ -93,7 +92,7 @@ export function restoreStock(items) {
   saveStockDelta(delta)
 }
 
-// ============ 分类筛选选项 ============
+// ============ 筛选选项 ============
 export const filterOptions = {
   brands: BRANDS,
   categories: CATS,

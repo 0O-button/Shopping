@@ -1,14 +1,9 @@
 import request from './request'
 import { allGoods, makeDetail, filterOptions, getRealStock } from '@/mock/goods'
-import { getRealStock } from '@/mock/goods'
-
 
 const USE_MOCK = true
 
-/**
- * 商品列表（支持关键词、分类、品牌、价格区间、排序、分页）
- * params: { keyword, category, brand, minPrice, maxPrice, sort, page, pageSize }
- */
+/** 商品列表 */
 export const getGoodsList = (params = {}) => {
   if (!USE_MOCK) return request.get('/goods/list', { params })
 
@@ -23,10 +18,11 @@ export const getGoodsList = (params = {}) => {
     pageSize = 20
   } = params
 
+  // ⭐ 用实际库存覆盖
   let list = allGoods.map((g) => ({
-  ...g,
-  stock: getRealStock(g.id)
-}))
+    ...g,
+    stock: getRealStock(g.id)
+  }))
 
   if (keyword) {
     const kw = keyword.toLowerCase()
@@ -54,12 +50,11 @@ export const getGoodsList = (params = {}) => {
 export const getGoodsDetail = (id) => {
   if (!USE_MOCK) return request.get(`/goods/${id}`)
   const data = makeDetail(id)
-  // 用实际库存覆盖
   data.stock = getRealStock(id)
   return Promise.resolve(data)
 }
 
-/** 筛选选项（品牌、分类、价格区间） */
+/** 筛选选项 */
 export const getFilterOptions = () => {
   if (!USE_MOCK) return request.get('/goods/filters')
   return Promise.resolve(filterOptions)
