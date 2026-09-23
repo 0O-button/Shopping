@@ -78,3 +78,46 @@ export function makeDetail(id) {
     ]
   }
 }
+// ============ 库存变动管理 ============
+const STOCK_KEY = 'mock_stock_delta'   // 存 { [goodsId]: 已扣除数量 }
+
+function loadStockDelta() {
+  try {
+    return JSON.parse(localStorage.getItem(STOCK_KEY) || '{}')
+  } catch (e) {
+    return {}
+  }
+}
+
+function saveStockDelta(delta) {
+  localStorage.setItem(STOCK_KEY, JSON.stringify(delta))
+}
+
+/** 获取商品的实际库存（原库存 - 已扣除） */
+export function getRealStock(goodsId) {
+  const base = allGoods.find((g) => g.id === Number(goodsId))
+  if (!base) return 0
+  const delta = loadStockDelta()
+  const used = delta[goodsId] || 0
+  return Math.max(0, base.stock - used)
+}
+
+/** 扣减库存（下单时调用） */
+export function reduceStock(items) {
+  // items: [{ id, num }]
+  const delta = loadStockDelta()
+  items.forEach((item) => {
+    delta[item.id] = (delta[item.id] || 0) + item.num
+  })
+  saveStockDelta(delta)
+}
+
+/** 回滚库存（取消订单时调用） */
+export function restoreStock(items) {
+  // items: [{ id, num }]
+  const delta = loadStockDelta()
+  items.forEach((item) => {
+    delta[item.id] = Math.max(0, (delta[item.id] || 0) - item.num)
+  })
+  saveStockDelta(delta)
+}

@@ -77,9 +77,6 @@ onMounted(loadData)
     height: 480px;
   }
 
-  &__cate {
-    /* 左侧分类菜单 */
-  }
 
   &__banner {
     min-width: 0;

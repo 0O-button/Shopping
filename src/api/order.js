@@ -1,6 +1,8 @@
 import request from './request'
 import { mockOrders, ORDER_STATUS } from '@/mock/order'
 
+
+
 const USE_MOCK = true
 
 // ===== 订单数据持久化到 localStorage，刷新不丢 =====
@@ -79,12 +81,15 @@ export const submitOrder = (data) => {
     remark: data.remark || ''
   }
 
-  // 最新订单放最前
-  const list = loadOrders()
-  list.unshift(newOrder)
-  saveOrders(list)
+  // ⭐ 扣减库存
+reduceStock(goods.map((g) => ({ id: g.id, num: g.num })))
 
-  return Promise.resolve({ orderId })
+// 最新订单放最前
+const list = loadOrders()
+list.unshift(newOrder)
+saveOrders(list)
+
+return Promise.resolve({ orderId })
 }
 
 /** 取消订单 */
@@ -94,6 +99,13 @@ export const cancelOrder = (orderId) => {
   const list = loadOrders()
   const idx = list.findIndex((o) => o.id === orderId)
   if (idx > -1) {
+    const order = list[idx]
+
+    // ⭐ 只有还没取消的才回滚库存
+    if (order.status !== 'CANCELED') {
+      restoreStock(order.goods.map((g) => ({ id: g.id, num: g.num })))
+    }
+
     list[idx].status = 'CANCELED'
     list[idx].statusLabel = ORDER_STATUS.CANCELED.label
     list[idx].statusColor = ORDER_STATUS.CANCELED.color

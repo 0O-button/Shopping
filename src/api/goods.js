@@ -1,5 +1,7 @@
 import request from './request'
 import { allGoods, makeDetail, filterOptions } from '@/mock/goods'
+import { getRealStock } from '@/mock/goods'
+
 
 const USE_MOCK = true
 
@@ -21,7 +23,10 @@ export const getGoodsList = (params = {}) => {
     pageSize = 20
   } = params
 
-  let list = [...allGoods]
+  let list = allGoods.map((g) => ({
+  ...g,
+  stock: getRealStock(g.id)
+}))
 
   if (keyword) {
     const kw = keyword.toLowerCase()
@@ -48,7 +53,10 @@ export const getGoodsList = (params = {}) => {
 /** 商品详情 */
 export const getGoodsDetail = (id) => {
   if (!USE_MOCK) return request.get(`/goods/${id}`)
-  return Promise.resolve(makeDetail(id))
+  const data = makeDetail(id)
+  // 用实际库存覆盖
+  data.stock = getRealStock(id)
+  return Promise.resolve(data)
 }
 
 /** 筛选选项（品牌、分类、价格区间） */
