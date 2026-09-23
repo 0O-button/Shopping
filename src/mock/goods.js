@@ -29,7 +29,7 @@ function buildGoods() {
       price: +(Math.random() * 6000 + 99).toFixed(2),
       originPrice: +(Math.random() * 3000 + 6000).toFixed(2),
       sales: Math.floor(Math.random() * 20000) + 100,
-      stock: Math.floor(Math.random() * 500) + 100,
+      stock: Math.floor(Math.random() * 500) + 100,   // ⭐ 随机 100 ~ 600
       brand: randomOf(BRANDS),
       category: randomOf(CATS),
       tag: i % 5 === 0 ? '自营' : '',
@@ -110,6 +110,7 @@ export function makeDetail(id) {
   const base = allGoods.find((g) => g.id === Number(id)) || allGoods[0]
   return {
     ...base,
+    stock: getRealStock(base.id),
     images: [
       img(`d${base.id}-1`, 600, 600),
       img(`d${base.id}-2`, 600, 600),
@@ -131,7 +132,7 @@ export function makeDetail(id) {
       { key: '商品编号', value: base.id },
       { key: '品牌', value: base.brand },
       { key: '分类', value: base.category },
-      { key: '库存', value: `${base.stock} 件` },
+      { key: '库存', value: `${getRealStock(base.id)} 件` },
       { key: '发货地', value: '江苏 南京' }
     ]
   }
