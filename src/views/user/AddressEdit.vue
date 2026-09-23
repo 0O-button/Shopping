@@ -7,6 +7,7 @@ import {
   updateAddress
 } from '@/api/user'
 import { ADDRESS_TAGS } from '@/mock/user'
+import { regionData } from '@/mock/region'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
@@ -15,11 +16,8 @@ const router = useRouter()
 const formRef = ref()
 const saving = ref(false)
 
-// 编辑模式下 id 存在
 const isEdit = computed(() => !!route.params.id)
 const editId = computed(() => Number(route.params.id))
-
-// 从哪来的（checkout / user），保存后决定回哪里
 const from = computed(() => route.query.from || 'user')
 
 const form = reactive({
@@ -34,6 +32,9 @@ const form = reactive({
   isDefault: false
 })
 
+// ⭐ 三级联动的绑定值：['江苏省', '南京市', '栖霞区']
+const regionValue = ref([])
+
 const rules = {
   name: [
     { required: true, message: '请输入收货人姓名', trigger: 'blur' },
@@ -43,9 +44,6 @@ const rules = {
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
   ],
-  province: [{ required: true, message: '请输入省份', trigger: 'blur' }],
-  city: [{ required: true, message: '请输入城市', trigger: 'blur' }],
-  district: [{ required: true, message: '请输入区/县', trigger: 'blur' }],
   detail: [
     { required: true, message: '请输入详细地址', trigger: 'blur' },
     { min: 5, max: 100, message: '长度 5-100 位', trigger: 'blur' }
@@ -55,7 +53,12 @@ const rules = {
   ]
 }
 
-// 编辑模式：先把数据读出来填进表单
+// 级联选择器的 props 配置
+const cascaderProps = {
+  expandTrigger: 'hover'
+}
+
+// 编辑模式：加载数据
 async function loadForEdit() {
   const list = await getAddressList()
   const item = list.find((a) => a.id === editId.value)
@@ -64,6 +67,7 @@ async function loadForEdit() {
     router.replace(from.value === 'checkout' ? '/checkout' : '/user/address')
     return
   }
+
   Object.assign(form, {
     name: item.name,
     phone: item.phone,
@@ -75,11 +79,25 @@ async function loadForEdit() {
     tag: item.tag || '家',
     isDefault: !!item.isDefault
   })
+
+  // 回填级联选择器
+  regionValue.value = [item.province, item.city, item.district].filter(Boolean)
 }
 
 async function handleSave() {
   const ok = await formRef.value.validate().catch(() => false)
   if (!ok) return
+
+  // ⭐ 校验地区必须选完整三级
+  if (!regionValue.value || regionValue.value.length !== 3) {
+    ElMessage.warning('请选择完整的省 / 市 / 区')
+    return
+  }
+
+  // 把级联选择的值拆到 form 里
+  form.province = regionValue.value[0]
+  form.city = regionValue.value[1]
+  form.district = regionValue.value[2]
 
   saving.value = true
   try {
@@ -99,11 +117,8 @@ async function handleSave() {
 }
 
 function goBack() {
-  if (from.value === 'checkout') {
-    router.replace('/checkout')
-  } else {
-    router.replace('/user/address')
-  }
+  if (from.value === 'checkout') router.replace('/checkout')
+  else router.replace('/user/address')
 }
 
 function handleCancel() {
@@ -148,18 +163,17 @@ onMounted(() => {
           />
         </el-form-item>
 
+        <!-- ⭐ 三级联动：省 / 市 / 区 -->
         <el-form-item label="所在地区" required>
-          <div class="region-row">
-            <el-form-item prop="province" class="region-item">
-              <el-input v-model="form.province" placeholder="省份" />
-            </el-form-item>
-            <el-form-item prop="city" class="region-item">
-              <el-input v-model="form.city" placeholder="城市" />
-            </el-form-item>
-            <el-form-item prop="district" class="region-item">
-              <el-input v-model="form.district" placeholder="区 / 县" />
-            </el-form-item>
-          </div>
+          <el-cascader
+            v-model="regionValue"
+            :options="regionData"
+            :props="cascaderProps"
+            placeholder="请选择省 / 市 / 区"
+            clearable
+            filterable
+            style="width: 520px"
+          />
         </el-form-item>
 
         <el-form-item label="详细地址" prop="detail">
@@ -238,17 +252,6 @@ onMounted(() => {
   &__body {
     padding: 24px 40px 40px;
   }
-}
-
-.region-row {
-  display: flex;
-  gap: 10px;
-  width: 520px;
-
-  :deep(.el-form-item) {
-    margin-bottom: 0;
-  }
-  .region-item { flex: 1; }
 }
 
 .tag-list {
