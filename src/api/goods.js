@@ -1,5 +1,5 @@
 import request from './request'
-import { allGoods, makeDetail, filterOptions } from '@/mock/goods'
+import { allGoods, makeDetail, filterOptions, getRealStock } from '@/mock/goods'
 import { getRealStock } from '@/mock/goods'
 
 

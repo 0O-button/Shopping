@@ -1,11 +1,9 @@
 import request from './request'
 import { mockOrders, ORDER_STATUS } from '@/mock/order'
-
-
+import { reduceStock, restoreStock } from '@/mock/goods'   // ⭐ 关键
 
 const USE_MOCK = true
 
-// ===== 订单数据持久化到 localStorage，刷新不丢 =====
 const STORAGE_KEY = 'mock_orders'
 
 function loadOrders() {
@@ -13,7 +11,6 @@ function loadOrders() {
     const cache = localStorage.getItem(STORAGE_KEY)
     if (cache) return JSON.parse(cache)
   } catch (e) {}
-  // 首次：把初始 mock 写进去
   const init = JSON.parse(JSON.stringify(mockOrders))
   localStorage.setItem(STORAGE_KEY, JSON.stringify(init))
   return init
@@ -50,11 +47,9 @@ export const submitOrder = (data) => {
   const createTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} `
     + `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
 
-  // 货到付款 → 待发货；其他 → 待付款
   const status = data.payType === 'cod' ? 'UNSHIPPED' : 'UNPAID'
   const meta = ORDER_STATUS[status]
 
-  // 购物车 item → 订单 goods（字段标准化）
   const goods = (data.goods || []).map((g) => ({
     id: g.id,
     name: g.name,
@@ -81,15 +76,14 @@ export const submitOrder = (data) => {
     remark: data.remark || ''
   }
 
-  // ⭐ 扣减库存
-reduceStock(goods.map((g) => ({ id: g.id, num: g.num })))
+  // ⭐ 扣库存
+  reduceStock(goods.map((g) => ({ id: g.id, num: g.num })))
 
-// 最新订单放最前
-const list = loadOrders()
-list.unshift(newOrder)
-saveOrders(list)
+  const list = loadOrders()
+  list.unshift(newOrder)
+  saveOrders(list)
 
-return Promise.resolve({ orderId })
+  return Promise.resolve({ orderId })
 }
 
 /** 取消订单 */
@@ -101,7 +95,7 @@ export const cancelOrder = (orderId) => {
   if (idx > -1) {
     const order = list[idx]
 
-    // ⭐ 只有还没取消的才回滚库存
+    // ⭐ 回滚库存（只有非取消状态才回滚，避免重复）
     if (order.status !== 'CANCELED') {
       restoreStock(order.goods.map((g) => ({ id: g.id, num: g.num })))
     }
@@ -129,7 +123,7 @@ export const confirmReceive = (orderId) => {
   return Promise.resolve(true)
 }
 
-/** 支付订单（演示用） */
+/** 支付订单 */
 export const payOrder = (orderId) => {
   if (!USE_MOCK) return request.post(`/order/${orderId}/pay`)
 
@@ -143,6 +137,7 @@ export const payOrder = (orderId) => {
   }
   return Promise.resolve(true)
 }
+
 /** 删除单个订单 */
 export const deleteOrder = (orderId) => {
   if (!USE_MOCK) return request.delete(`/order/${orderId}`)

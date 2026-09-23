@@ -1,7 +1,9 @@
 const img = (seed, w = 400, h = 400) =>
   `https://picsum.photos/seed/${seed}/${w}/${h}`
 
-// ---------- 生成一批商品（供搜索页用） ----------
+// ============ 商品原始数据（只生成一次，持久化） ============
+const GOODS_STORAGE_KEY = 'mock_goods_base'
+
 const NAMES = [
   '智能手表 Pro 运动版', '无线降噪耳机 蓝牙5.3', '4K 高清投影仪 家用',
   '机械键盘 87 键 白光', '扫地机器人 自动集尘', '纯棉宽松卫衣 男女同款',
@@ -17,24 +19,81 @@ const CATS = ['数码', '家电', '服饰', '美妆', '家居', '运动']
 
 function randomOf(arr) { return arr[Math.floor(Math.random() * arr.length)] }
 
-export const allGoods = Array.from({ length: 60 }, (_, i) => {
-  const name = NAMES[i % NAMES.length] + (i >= NAMES.length ? ` 第${Math.floor(i / NAMES.length) + 1}代` : '')
-  return {
-    id: 1000 + i,
-    name,
-    desc: '正品保障 · 全国联保 · 极速发货 · 七天无理由',
-    price: +(Math.random() * 6000 + 99).toFixed(2),
-    originPrice: +(Math.random() * 3000 + 6000).toFixed(2),
-    sales: Math.floor(Math.random() * 20000) + 100,
-    stock: Math.floor(Math.random() * 500) + 20,
-    brand: randomOf(BRANDS),
-    category: randomOf(CATS),
-    tag: i % 5 === 0 ? '自营' : '',
-    image: img(`goods${i}`, 500, 500)
-  }
-})
+function buildGoods() {
+  return Array.from({ length: 60 }, (_, i) => {
+    const name = NAMES[i % NAMES.length] + (i >= NAMES.length ? ` 第${Math.floor(i / NAMES.length) + 1}代` : '')
+    return {
+      id: 1000 + i,
+      name,
+      desc: '正品保障 · 全国联保 · 极速发货 · 七天无理由',
+      price: +(Math.random() * 6000 + 99).toFixed(2),
+      originPrice: +(Math.random() * 3000 + 6000).toFixed(2),
+      sales: Math.floor(Math.random() * 20000) + 100,
+      stock: Math.floor(Math.random() * 500) + 100,   // 100 ~ 600
+      brand: randomOf(BRANDS),
+      category: randomOf(CATS),
+      tag: i % 5 === 0 ? '自营' : '',
+      image: img(`goods${i}`, 500, 500)
+    }
+  })
+}
 
-// ---------- 分类筛选选项 ----------
+/** 商品基础数据，只生成一次，存 localStorage */
+function loadGoodsBase() {
+  try {
+    const cache = localStorage.getItem(GOODS_STORAGE_KEY)
+    if (cache) return JSON.parse(cache)
+  } catch (e) {}
+  const list = buildGoods()
+  localStorage.setItem(GOODS_STORAGE_KEY, JSON.stringify(list))
+  return list
+}
+
+export const allGoods = loadGoodsBase()
+
+// ============ 库存扣减管理 ============
+const STOCK_KEY = 'mock_stock_delta'
+
+function loadStockDelta() {
+  try {
+    return JSON.parse(localStorage.getItem(STOCK_KEY) || '{}')
+  } catch (e) {
+    return {}
+  }
+}
+
+function saveStockDelta(delta) {
+  localStorage.setItem(STOCK_KEY, JSON.stringify(delta))
+}
+
+/** 获取实际库存 = 原库存 - 已扣减 */
+export function getRealStock(goodsId) {
+  const base = allGoods.find((g) => g.id === Number(goodsId))
+  if (!base) return 0
+  const delta = loadStockDelta()
+  const used = delta[goodsId] || 0
+  return Math.max(0, base.stock - used)
+}
+
+/** 扣减库存 */
+export function reduceStock(items) {
+  const delta = loadStockDelta()
+  items.forEach((item) => {
+    delta[item.id] = (delta[item.id] || 0) + item.num
+  })
+  saveStockDelta(delta)
+}
+
+/** 回滚库存 */
+export function restoreStock(items) {
+  const delta = loadStockDelta()
+  items.forEach((item) => {
+    delta[item.id] = Math.max(0, (delta[item.id] || 0) - item.num)
+  })
+  saveStockDelta(delta)
+}
+
+// ============ 分类筛选选项 ============
 export const filterOptions = {
   brands: BRANDS,
   categories: CATS,
@@ -47,7 +106,7 @@ export const filterOptions = {
   ]
 }
 
-// ---------- 商品详情 ----------
+// ============ 商品详情 ============
 export function makeDetail(id) {
   const base = allGoods.find((g) => g.id === Number(id)) || allGoods[0]
   return {
@@ -77,47 +136,4 @@ export function makeDetail(id) {
       { key: '发货地', value: '江苏 南京' }
     ]
   }
-}
-// ============ 库存变动管理 ============
-const STOCK_KEY = 'mock_stock_delta'   // 存 { [goodsId]: 已扣除数量 }
-
-function loadStockDelta() {
-  try {
-    return JSON.parse(localStorage.getItem(STOCK_KEY) || '{}')
-  } catch (e) {
-    return {}
-  }
-}
-
-function saveStockDelta(delta) {
-  localStorage.setItem(STOCK_KEY, JSON.stringify(delta))
-}
-
-/** 获取商品的实际库存（原库存 - 已扣除） */
-export function getRealStock(goodsId) {
-  const base = allGoods.find((g) => g.id === Number(goodsId))
-  if (!base) return 0
-  const delta = loadStockDelta()
-  const used = delta[goodsId] || 0
-  return Math.max(0, base.stock - used)
-}
-
-/** 扣减库存（下单时调用） */
-export function reduceStock(items) {
-  // items: [{ id, num }]
-  const delta = loadStockDelta()
-  items.forEach((item) => {
-    delta[item.id] = (delta[item.id] || 0) + item.num
-  })
-  saveStockDelta(delta)
-}
-
-/** 回滚库存（取消订单时调用） */
-export function restoreStock(items) {
-  // items: [{ id, num }]
-  const delta = loadStockDelta()
-  items.forEach((item) => {
-    delta[item.id] = Math.max(0, (delta[item.id] || 0) - item.num)
-  })
-  saveStockDelta(delta)
 }
