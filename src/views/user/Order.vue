@@ -63,6 +63,18 @@ function toggleAll(val) {
   }
 }
 
+
+// 再次购买：跳到订单里第一个商品的详情页
+function handleBuyAgain(order) {
+  if (!order.goods || !order.goods.length) {
+    ElMessage.warning('订单没有商品信息')
+    return
+  }
+  const firstGoods = order.goods[0]
+  router.push(`/goods/${firstGoods.id}`)
+}
+
+
 // ============ 数据加载 ============
 async function loadList() {
   loading.value = true
@@ -302,8 +314,8 @@ onMounted(loadList)
                 @click="handleConfirm(order)"
               >确认收货</el-button>
 
-              <el-button size="small" plain @click="router.push('/home')">
-                再次购买
+              <el-button size="small" plain @click="handleBuyAgain(order)">
+               再次购买
               </el-button>
 
               <el-button
