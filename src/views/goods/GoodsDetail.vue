@@ -60,12 +60,14 @@ function changeNum(delta) {
 
 function handleAddCart() {
   if (!detail.value) return
-  // 检查每个规格都有选中
   const missing = detail.value.specs.find((s) => !selectedSpecs[s.name])
   if (missing) {
     ElMessage.warning(`请选择${missing.name}`)
     return
   }
+
+  const addNum = num.value
+
   cartStore.addItem(
     {
       id: detail.value.id,
@@ -74,9 +76,13 @@ function handleAddCart() {
       image: detail.value.image,
       spec: specText.value
     },
-    num.value
+    addNum
   )
-  ElMessage.success(`已加入购物车 × ${num.value}`)
+
+  ElMessage.success(`已加入购物车 × ${addNum}`)
+
+  // ⭐ 加完后重置为 1
+  num.value = 1
 }
 
 function handleBuyNow() {
